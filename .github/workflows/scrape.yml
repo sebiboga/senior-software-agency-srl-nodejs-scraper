@@ -1,0 +1,26 @@
+name: WebScraper Senior Software to Peviitor
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run scrape
+        env:
+          SOLR_AUTH: ${{ secrets.SOLR_AUTH }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: scraped-jobs
+          path: tmp/jobs.json
+          retention-days: 7
