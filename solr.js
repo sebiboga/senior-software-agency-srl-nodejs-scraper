@@ -1,34 +1,14 @@
 import fetch from "node-fetch";
 import fs from "fs";
 import crypto from "crypto";
+import { loadEnvFile } from "node:process";
 
 const SOLR_URL = "https://solr.peviitor.ro/solr/job/select";
 const SOLR_UPDATE_URL = "https://solr.peviitor.ro/solr/job/update";
 const SOLR_COMPANY_URL = "https://solr.peviitor.ro/solr/company/update";
 const USER_AGENT = "job_seeker_ro_spider";
 
-function loadEnv() {
-  try {
-    const envPath = new URL(".env.local", import.meta.url);
-    if (fs.existsSync(envPath)) {
-      const content = fs.readFileSync(envPath, "utf-8");
-      for (const line of content.split("\n")) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith("#")) {
-          const eqIdx = trimmed.indexOf("=");
-          if (eqIdx > 0) {
-            const key = trimmed.slice(0, eqIdx).trim();
-            const value = trimmed.slice(eqIdx + 1).trim();
-            if (!process.env[key]) process.env[key] = value;
-          }
-        }
-      }
-    }
-  } catch {
-  }
-}
-
-loadEnv();
+try { loadEnvFile(".env.local"); } catch { }
 
 export function getSolrAuth() {
   return process.env.SOLR_AUTH;
