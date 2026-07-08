@@ -1,6 +1,5 @@
 import fetch from "node-fetch";
 import fs from "fs";
-import crypto from "crypto";
 import { loadEnvFile } from "node:process";
 
 const SOLR_URL = "https://solr.peviitor.ro/solr/job/select";
@@ -79,15 +78,10 @@ export async function deleteJobsByCIF(cif) {
   return data;
 }
 
-function numericId(url) {
-  const hash = crypto.createHash("md5").update(url).digest("hex");
-  return parseInt(hash.slice(0, 12), 16);
-}
-
 export async function upsertJobs(jobs) {
   const auth = getSolrAuth();
   if (!auth) throw new Error("SOLR_AUTH not set");
-  const body = JSON.stringify(jobs.map(job => ({ ...job, id: numericId(job.url) })));
+  const body = JSON.stringify(jobs);
   const params = new URLSearchParams({ commit: "true", overwrite: "true", wt: "json" });
   const res = await fetch(`${SOLR_UPDATE_URL}?${params}`, {
     method: "POST",
