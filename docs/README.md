@@ -1,5 +1,75 @@
-# Docs
+# job_seeker_ro_spider
 
-This directory contains the static HTML job board for Senior Software jobs.
+**job_seeker_ro_spider** — scraper pentru job-urile Senior Software din România.
 
-Open `index.html` in a browser to view live jobs fetched from the Peviitor API.
+Extrage anunțurile de pe [Senior Software Careers](https://seniorsoftware.ro/cariere/) și le publică în [peviitor.ro](https://peviitor.ro) prin API-ul SOLR.
+
+## Identificare
+
+Toate request-urile HTTP folosesc User-Agent-ul:
+
+```
+job_seeker_ro_spider
+```
+
+## Ce face
+
+1. **Validează compania** — interoghează API-ul public ANAF ([demoanaf.ro](https://demoanaf.ro)) după CIF-ul Senior Software (15525700) și verifică:
+   - Denumirea oficială: SENIOR SOFTWARE AGENCY SRL
+   - Status: activ/inactiv/radiat
+   - Adresa completă din registrul comerțului
+2. **Cross-validează cu Peviitor** — verifică existența companiei în API-ul Peviitor
+3. **Scrape-uiește job-urile** — extrage lista completă de job-uri din pagina HTML de cariere Senior Software
+4. **Transformă datele** — normalizează locațiile (doar orașe românești), tag-urile (lowercase), workmode-ul (remote/on-site/hybrid)
+5. **Stochează în SOLR** — upsert în `job` core (job-urile) și `company` core (datele companiei cu adresa completă)
+6. **Generează docs/jobs.md** — fișier markdown cu informații companie + toate job-urile curente, publicat pe [GitHub Pages](https://sebiboga.github.io/senior-software-agency-srl-nodejs-scraper/jobs.md)
+
+## Structură proiect
+
+```
+├── config/company.json         # Sursa unică de adevăr (CIF, brand, URL-uri, API)
+├── config/company.js           # Loader ESM pentru config/company.json
+├── index.js                    # Orchestrator principal
+├── company.js                  # Validare companie (ANAF + Peviitor + SOLR) cu cache 7 zile
+├── demoanaf.js                 # CLI wrapper pentru src/anaf.js
+├── src/anaf.js                 # Modul ANAF API (search + company details)
+├── src/markdown-generator.js   # Generează docs/jobs.md după scrape
+├── src/job-validator.js        # Primitivă comună: validateByHead, validateByContent
+├── solr.js                     # Operații SOLR (query, upsert, delete, company)
+├── company.json                # Cache ANAF (committed, TTL 7 zile, fallback la stale)
+├── tests/
+│   ├── unit/          # Teste unitare (API-uri mock-uite)
+│   ├── integration/   # Teste de integrare (ANAF + SOLR live)
+│   └── e2e/           # Teste end-to-end (pipelin complet)
+└── .github/workflows/
+    ├── job-seeker-ro-spider.yml     # Rulează zilnic la 6 AM UTC
+    └── automation-testing.yml       # Teste automate la fiecare push/PR
+```
+
+## API-uri folosite
+
+| API | URL | Autentificare |
+|---|---|---|
+| Senior Software Careers | `https://seniorsoftware.ro/cariere/` | Public |
+| ANAF (demoanaf) | `https://demoanaf.ro/api/...` | Public |
+| Peviitor | `https://api.peviitor.ro/v1/company/` | Public |
+| SOLR (job core) | `https://solr.peviitor.ro/solr/job` | `SOLR_AUTH` |
+| SOLR (company core) | `https://solr.peviitor.ro/solr/company` | `SOLR_AUTH` |
+
+## Testare
+
+```bash
+# Toate testele
+npm test
+
+# Doar unitare
+npm run test:unit
+
+# Doar integrare (necesită ANAF live, SOLR conditional)
+npm run test:integration
+
+# Doar E2E (API real Senior Software + ANAF + SOLR)
+npm run test:e2e
+```
+
+Testele SOLR folosesc `itIfSolr` — se auto-skip dacă variabila `SOLR_AUTH` nu e setată.
