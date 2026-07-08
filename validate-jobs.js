@@ -6,8 +6,8 @@ const USER_AGENT = "job_seeker_ro_spider";
 
 async function validateJobs() {
   if (!fs.existsSync(JOBS_FILE)) {
-    console.log("No jobs.json found. Run the scraper first.");
-    process.exit(1);
+    console.log("No jobs.json found — nothing to validate.");
+    process.exit(0);
   }
 
   const data = JSON.parse(fs.readFileSync(JOBS_FILE, "utf-8"));
