@@ -78,6 +78,23 @@ export async function deleteJobsByCIF(cif) {
   return data;
 }
 
+export async function deleteJobByUrl(url) {
+  const auth = getSolrAuth();
+  if (!auth) throw new Error("SOLR_AUTH not set");
+  const body = JSON.stringify({ delete: { query: `url:"${url}"` } });
+  const params = new URLSearchParams({ commit: "true", wt: "json" });
+  const res = await fetch(`https://solr.peviitor.ro/solr/job/update?${params}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": USER_AGENT,
+      ...getAuthHeaders()
+    },
+    body
+  });
+  if (!res.ok) throw new Error(`SOLR delete error: ${res.status}`);
+}
+
 export async function upsertJobs(jobs) {
   const auth = getSolrAuth();
   if (!auth) throw new Error("SOLR_AUTH not set");

@@ -51,37 +51,49 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: Ensure Senior Software exists in company core
         env:
           SOLR_AUTH: ${{ secrets.SOLR_AUTH }}
         run: |
-          EXISTING=$(curl -s --user "${SOLR_AUTH}" \
-            "https://solr.peviitor.ro/solr/company/select?q=id:15525700&rows=1" | jq '.response.numFound')
+          CIF=$(jq -r '.cif' config/company.json)
+          LEGAL_NAME=$(jq -r '.legalName' config/company.json)
+          BRAND=$(jq -r '.brand' config/company.json)
+          WEBSITE=$(jq -r '.website' config/company.json)
+          CAREER=$(jq -r '.careerUrl' config/company.json)
+          DEFAULT_LOC=$(jq -r '.defaultLocation' config/company.json)
+          SCRAPER_FILE=$(jq -r '.scraperFile' config/company.json)
+          TODAY=$(date -u +%Y-%m-%d)
 
-          echo "Senior Software count in company core: $EXISTING"
+          echo "Upserting ${BRAND} (CIF: ${CIF}) into Solr company core..."
+          jq -n \
+            --arg id "$CIF" \
+            --arg company "$LEGAL_NAME" \
+            --arg brand "$BRAND" \
+            --arg website "$WEBSITE" \
+            --arg career "$CAREER" \
+            --arg loc "$DEFAULT_LOC" \
+            --arg today "$TODAY" \
+            --arg scraperFile "$SCRAPER_FILE" \
+            '[{id:$id,company:$company,brand:$brand,status:"activ",location:[$loc],website:[$website],career:[$career],lastScraped:$today,scraperFile:$scraperFile}]' \
+            > company_data.json
 
-          if [ "$EXISTING" -eq "0" ]; then
-            echo "Senior Software not found - adding to company core..."
-            echo '[{"id":"15525700","company":"SENIOR SOFTWARE AGENCY SRL","brand":"Senior Software","status":"activ","location":["București"],"website":["https://seniorsoftware.ro"],"career":["https://seniorsoftware.ro/cariere/"],"lastScraped":"'$(date +%Y-%m-%d)'","scraperFile":"https://raw.githubusercontent.com/sebiboga/senior-software-agency-srl-nodejs-scraper/main/.github/workflows/scrape.yml"}]' > company_data.json
-
-            curl -s --user "${SOLR_AUTH}" \
-              "https://solr.peviitor.ro/solr/company/update/json?commit=true" \
-              -X POST \
-              -H "Content-Type: application/json" \
-              --data-binary @company_data.json
-          else
-            echo "Senior Software already exists in company core - no action needed"
-          fi
+          curl -s --user "${SOLR_AUTH}" \
+            "https://solr.peviitor.ro/solr/company/update/json?commit=true" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data-binary @company_data.json
 
           FINAL=$(curl -s --user "${SOLR_AUTH}" \
-            "https://solr.peviitor.ro/solr/company/select?q=id:15525700&rows=1" | jq '.response.numFound')
+            "https://solr.peviitor.ro/solr/company/select?q=id:${CIF}&rows=1" | jq '.response.numFound')
 
-          echo "Senior Software count after check: $FINAL"
+          echo "${BRAND} count after upsert: $FINAL"
 
           if [ "$FINAL" -ge "1" ]; then
-            echo "✅ SUCCESS: Senior Software is in company core"
+            echo "✅ SUCCESS: ${BRAND} is in company core"
           else
-            echo "❌ FAILED: Senior Software still not in company core"
+            echo "❌ FAILED: ${BRAND} still not in company core"
             exit 1
           fi
 

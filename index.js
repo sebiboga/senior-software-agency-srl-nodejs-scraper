@@ -1,20 +1,16 @@
 import fetch from "node-fetch";
 import fs from "fs";
-import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { validateAndGetCompany } from "./company.js";
 import { querySOLR, upsertJobs, upsertCompany } from "./solr.js";
+import { generateJobsMarkdown } from "./src/markdown-generator.js";
+import companyConfig from "./config/company.js";
 
-const COMPANY_CIF = "15525700";
+const COMPANY_CIF = companyConfig.cif;
 const CAREERS_URL = "https://seniorsoftware.ro/cariere/";
 const USER_AGENT = "job_seeker_ro_spider";
 
 let COMPANY_NAME = null;
-
-function numericId(url) {
-  const hash = crypto.createHash("md5").update(url).digest("hex");
-  return parseInt(hash.slice(0, 12), 16);
-}
 
 async function fetchPage() {
   const res = await fetch(CAREERS_URL, {
@@ -164,13 +160,13 @@ async function main() {
       await upsertCompany({
         id: cif,
         company,
-        brand: "Senior Software",
+        brand: companyConfig.brand,
         status: "activ",
-        location: address ? [address] : ["București"],
-        website: ["https://seniorsoftware.ro"],
-        career: ["https://seniorsoftware.ro/cariere/"],
+        location: address ? [address] : [companyConfig.defaultLocation],
+        website: [companyConfig.website],
+        career: [companyConfig.careerUrl],
         lastScraped: new Date().toISOString().split('T')[0],
-        scraperFile: "https://raw.githubusercontent.com/sebiboga/senior-software-agency-srl-nodejs-scraper/main/.github/workflows/scrape.yml"
+        scraperFile: companyConfig.scraperFile
       });
     } catch (err) {
       console.log(`Note: Could not upsert company to SOLR core: ${err.message}`);
@@ -205,6 +201,24 @@ async function main() {
     fs.mkdirSync("tmp", { recursive: true });
     fs.writeFileSync("tmp/jobs.json", JSON.stringify(transformedPayload, null, 2), "utf-8");
     console.log("Saved tmp/jobs.json");
+
+    const companyData = {
+      id: localCif,
+      company: transformedPayload.company,
+      brand: companyConfig.brand,
+      status: "activ",
+      location: address ? [address] : [companyConfig.defaultLocation],
+      website: [companyConfig.website],
+      career: [companyConfig.careerUrl],
+      lastScraped: new Date().toISOString().split('T')[0]
+    };
+    const markdown = generateJobsMarkdown(companyData, transformedPayload.jobs);
+    fs.mkdirSync("docs", { recursive: true });
+    fs.writeFileSync("docs/jobs.md", markdown, "utf-8");
+    console.log("Saved docs/jobs.md");
+
+    fs.writeFileSync("docs/company.json", JSON.stringify(companyConfig, null, 2), "utf-8");
+    console.log("Saved docs/company.json");
 
     console.log("\n=== Step 3: Upsert jobs to SOLR ===");
     await upsertJobs(transformedPayload.jobs);

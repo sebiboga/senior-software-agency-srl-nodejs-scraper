@@ -1,0 +1,10 @@
+{
+  "cif": "15525700",
+  "legalName": "SENIOR SOFTWARE AGENCY SRL",
+  "brand": "Senior Software",
+  "website": "https://seniorsoftware.ro",
+  "careerUrl": "https://seniorsoftware.ro/cariere/",
+  "apiBase": "https://seniorsoftware.ro/cariere/",
+  "defaultLocation": "București",
+  "scraperFile": "https://raw.githubusercontent.com/sebiboga/senior-software-agency-srl-nodejs-scraper/main/.github/workflows/scrape.yml"
+}

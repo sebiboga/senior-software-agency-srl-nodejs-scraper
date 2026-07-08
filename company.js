@@ -2,10 +2,17 @@ import fetch from "node-fetch";
 import fs from "fs";
 import { querySOLR, deleteJobsByCIF } from "./solr.js";
 import { getCompanyFromANAF } from "./src/anaf.js";
+import companyConfig from "./config/company.js";
 
 const Peviitor_API_URL = "https://api.peviitor.ro/v1/company/";
-const COMPANY_CIF = "15525700";
-const COMPANY_BRAND = "Senior Software";
+
+const COMPANY_CIF = companyConfig.cif;
+const COMPANY_BRAND = companyConfig.brand;
+
+const CACHE_MAX_AGE_DAYS = 7;
+
+const ROOT_CACHE_PATH = "company.json";
+const TMP_CACHE_PATH = "tmp/company.json";
 
 export function getCompanyBrand() {
   return COMPANY_BRAND;
@@ -74,7 +81,6 @@ function validateCompanyModel(data) {
 }
 
 function saveCompanyData(anafData, peviitorData) {
-  fs.mkdirSync("tmp", { recursive: true });
   const companyData = {
     validatedAt: new Date().toISOString(),
     source: "ANAF",
@@ -94,21 +100,44 @@ function saveCompanyData(anafData, peviitorData) {
       eFacturaRegistered: anafData?.eFacturaRegistered || false
     }
   };
-  fs.writeFileSync("tmp/company.json", JSON.stringify(companyData, null, 2), "utf-8");
-  console.log("\nSaved company data to tmp/company.json\n");
+
+  const json = JSON.stringify(companyData, null, 2);
+
+  fs.mkdirSync("tmp", { recursive: true });
+  fs.writeFileSync(TMP_CACHE_PATH, json, "utf-8");
+  console.log(`\n✅ Saved company data to ${TMP_CACHE_PATH}`);
+
+  fs.writeFileSync(ROOT_CACHE_PATH, json, "utf-8");
+  console.log(`✅ Updated root cache ${ROOT_CACHE_PATH}\n`);
+
   return companyData;
 }
 
+function isValidCache(data) {
+  return Boolean(data?.anaf?.cui && data?.anaf?.name);
+}
+
+function isCacheFresh(data) {
+  if (!data?.validatedAt) return false;
+  const ageMs = Date.now() - new Date(data.validatedAt).getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  return ageDays < CACHE_MAX_AGE_DAYS;
+}
+
 function loadCachedCompanyData() {
-  if (fs.existsSync("tmp/company.json")) {
+  for (const cachePath of [TMP_CACHE_PATH, ROOT_CACHE_PATH]) {
+    if (!fs.existsSync(cachePath)) continue;
     try {
-      const data = JSON.parse(fs.readFileSync("tmp/company.json", "utf-8"));
-      if (data?.anaf?.cui && data?.anaf?.name) {
-        console.log("Found cached company data in company.json");
+      const data = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+      if (!isValidCache(data)) continue;
+      if (isCacheFresh(data)) {
+        console.log(`Found fresh cached company data in ${cachePath}`);
         return data;
       }
+      console.log(`Found stale cached company data in ${cachePath} (older than ${CACHE_MAX_AGE_DAYS} days)`);
+      return { ...data, _stale: true };
     } catch (e) {
-      console.log("Warning: Could not load cached company data");
+      console.log(`Warning: Could not parse ${cachePath}`);
     }
   }
   return null;
@@ -116,7 +145,8 @@ function loadCachedCompanyData() {
 
 export async function getCompanyData() {
   const cachedData = loadCachedCompanyData();
-  if (cachedData?.summary?.cif) {
+
+  if (cachedData && !cachedData._stale && cachedData.summary?.cif) {
     console.log(`Using cached company data for CIF: ${cachedData.summary.cif}`);
     const anafData = cachedData.anaf;
     console.log(`Cached name: ${anafData.name}`);
@@ -127,16 +157,36 @@ export async function getCompanyData() {
     const active = !anafData.inactive;
     return { company, cif, active, anafData };
   }
-  console.log(`Fetching company data for CIF: ${COMPANY_CIF}`);
-  const anafData = await getCompanyFromANAF(COMPANY_CIF);
+
+  console.log(`Fetching fresh company data from ANAF for CIF: ${COMPANY_CIF}`);
+  let anafData;
+  try {
+    anafData = await getCompanyFromANAF(COMPANY_CIF);
+  } catch (err) {
+    if (cachedData?._stale) {
+      console.log(`⚠️ ANAF unreachable (${err.message}) — falling back to stale cache`);
+      const a = cachedData.anaf;
+      return {
+        company: a.name.toUpperCase(),
+        cif: a.cui.toString(),
+        active: !a.inactive,
+        anafData: a
+      };
+    }
+    throw err;
+  }
+
   if (!anafData) throw new Error("No data from ANAF - cannot proceed with scraping");
   if (!anafData.name) throw new Error("ANAF returned no company name - cannot proceed with scraping");
+
   console.log(`ANAF returned name: ${anafData.name}`);
   console.log(`ANAF returned CUI: ${anafData.cui}`);
   console.log(`ANAF status: ${anafData.inactive ? "INACTIVE" : "ACTIVE"}`);
+
   const company = anafData.name.toUpperCase();
   const cif = anafData.cui.toString();
   const active = !anafData.inactive;
+
   return { company, cif, active, anafData };
 }
 
