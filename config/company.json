@@ -6,5 +6,5 @@
   "careerUrl": "https://seniorsoftware.ro/cariere/",
   "apiBase": "https://seniorsoftware.ro/cariere/",
   "defaultLocation": "București",
-  "scraperFile": "https://raw.githubusercontent.com/sebiboga/senior-software-agency-srl-nodejs-scraper/main/.github/workflows/scrape.yml"
+  "scraperFile": "https://raw.githubusercontent.com/sebiboga/senior-software-agency-srl-nodejs-scraper/main/.github/workflows/job-seeker-ro-spider.yml"
 }
