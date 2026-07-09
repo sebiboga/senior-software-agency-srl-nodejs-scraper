@@ -51,6 +51,16 @@ export async function validateByContent(url, {
       redirect: "follow"
     });
 
+    if (!res.ok) {
+      return {
+        url,
+        status: "expired",
+        httpStatus: res.status,
+        title: null,
+        error: null
+      };
+    }
+
     const text = await res.text().catch(() => "");
     const lower = text.toLowerCase();
     const expired = keywords.some(kw => lower.includes(kw));
