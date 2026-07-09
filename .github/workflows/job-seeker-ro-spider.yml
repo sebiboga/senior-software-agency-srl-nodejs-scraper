@@ -74,7 +74,8 @@ jobs:
         run: |
           mkdir -p docs/test-results
           npm run test:unit
-          sed -i 's|<title>Test Report</title>|<title>Pre-scrape: Unit Tests — SENIOR SOFTWARE AGENCY SRL</title>|;s|<h1 id="title">Test Report</h1>|<h1 id="title">Pre-scrape: Unit Tests — SENIOR SOFTWARE AGENCY SRL</h1>|' test-report.html
+          LEGAL_NAME=$(jq -r '.legalName' config/company.json)
+          sed -i "s|<title>Test Report</title>|<title>Pre-scrape: Unit Tests — ${LEGAL_NAME}</title>|;s|<h1 id=\"title\">Test Report</h1>|<h1 id=\"title\">Pre-scrape: Unit Tests — ${LEGAL_NAME}</h1>|" test-report.html
           cp test-report.html docs/test-results/pre-scrape-unit.html || true
         env:
           SOLR_AUTH: ${{ secrets.SOLR_AUTH }}
@@ -83,7 +84,8 @@ jobs:
         run: |
           mkdir -p docs/test-results
           npm run test:integration
-          sed -i 's|<title>Test Report</title>|<title>Pre-scrape: Integration Tests — SENIOR SOFTWARE AGENCY SRL</title>|;s|<h1 id="title">Test Report</h1>|<h1 id="title">Pre-scrape: Integration Tests — SENIOR SOFTWARE AGENCY SRL</h1>|' test-report.html
+          LEGAL_NAME=$(jq -r '.legalName' config/company.json)
+          sed -i "s|<title>Test Report</title>|<title>Pre-scrape: Integration Tests — ${LEGAL_NAME}</title>|;s|<h1 id=\"title\">Test Report</h1>|<h1 id=\"title\">Pre-scrape: Integration Tests — ${LEGAL_NAME}</h1>|" test-report.html
           cp test-report.html docs/test-results/pre-scrape-integration.html || true
         env:
           SOLR_AUTH: ${{ secrets.SOLR_AUTH }}
@@ -106,9 +108,22 @@ jobs:
         run: |
           mkdir -p docs/test-results
           npm run test:e2e
-          sed -i 's|<title>Test Report</title>|<title>Post-scrape: E2E Tests — SENIOR SOFTWARE AGENCY SRL</title>|;s|<h1 id="title">Test Report</h1>|<h1 id="title">Post-scrape: E2E Tests — SENIOR SOFTWARE AGENCY SRL</h1>|' test-report.html
+          LEGAL_NAME=$(jq -r '.legalName' config/company.json)
+          sed -i "s|<title>Test Report</title>|<title>Post-scrape: E2E Tests — ${LEGAL_NAME}</title>|;s|<h1 id=\"title\">Test Report</h1>|<h1 id=\"title\">Post-scrape: E2E Tests — ${LEGAL_NAME}</h1>|" test-report.html
           cp test-report.html docs/test-results/post-scrape.html || true
         env:
+          SOLR_AUTH: ${{ secrets.SOLR_AUTH }}
+
+      - name: Consistency Tests
+        run: |
+          mkdir -p docs/test-results
+          npm run test:consistency
+          LEGAL_NAME=$(jq -r '.legalName' config/company.json)
+          sed -i "s|<title>Test Report</title>|<title>Post-scrape: Consistency Tests — ${LEGAL_NAME}</title>|;s|<h1 id=\"title\">Test Report</h1>|<h1 id=\"title\">Post-scrape: Consistency Tests — ${LEGAL_NAME}</h1>|" test-report.html
+          cp test-report.html docs/test-results/post-scrape-consistency.html || true
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOLR_AUTH: ${{ secrets.SOLR_AUTH }}
 
       - name: Upload test artifacts
@@ -124,7 +139,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/test-results/ || true
+          git add docs/test-results/
           git add docs/jobs.md || true
           git commit -m "[skip ci] Update test results" || echo "No changes to commit"
           git push || echo "Push failed (race condition) — will be picked up next run"
@@ -136,4 +151,5 @@ jobs:
           name: scraped-jobs
           path: |
             tmp/jobs.json
+            tmp/jobs_existing.json
           retention-days: 7

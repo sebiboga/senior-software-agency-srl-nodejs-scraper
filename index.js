@@ -9,8 +9,50 @@ import companyConfig from "./config/company.js";
 const COMPANY_CIF = companyConfig.cif;
 const CAREERS_URL = "https://seniorsoftware.ro/cariere/";
 const USER_AGENT = "job_seeker_ro_spider";
+const TIMEOUT = 10000;
 
 let COMPANY_NAME = null;
+
+async function searchANOFM(cif) {
+  const jobs = [];
+  try {
+    console.log(`Searching ANOFM by CIF: ${cif}`);
+    const payload = {
+      current: 1,
+      rowCount: 250,
+      sort: { created_at: "desc" },
+      employer_tax_code: cif
+    };
+    const res = await fetch("https://mediere.anofm.ro/api/entity/vw_public_job_posting", {
+      method: "POST",
+      timeout: TIMEOUT,
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      console.log(`  ANOFM returned ${res.status}`);
+      return jobs;
+    }
+    const data = await res.json();
+    for (const row of data.rows || []) {
+      const locationParts = (row.address_locality_name || '').split('>').map(s => s.trim());
+      const location = locationParts.length > 1 ? locationParts[locationParts.length - 1] : locationParts[0];
+      jobs.push({
+        url: `https://mediere.anofm.ro/app/module/mediere/job/${row.id}`,
+        title: row.occupation,
+        location: location ? [location] : undefined,
+        source: "ANOFM"
+      });
+    }
+    console.log(`  Found ${jobs.length} jobs on ANOFM`);
+  } catch (err) {
+    console.log(`  ANOFM error: ${err.message}`);
+  }
+  return jobs;
+}
 
 async function fetchPage() {
   const res = await fetch(CAREERS_URL, {
@@ -178,7 +220,17 @@ async function main() {
     const scrapedCount = rawJobs.length;
     console.log(`Jobs scraped from Senior Software: ${scrapedCount}`);
 
-    if (scrapedCount === 0) {
+    const anofmJobs = await searchANOFM(localCif);
+    const anofmCount = anofmJobs.length;
+    for (const job of anofmJobs) {
+      if (!rawJobs.find(j => j.url === job.url)) {
+        rawJobs.push(job);
+      }
+    }
+    console.log(`Jobs added from ANOFM: ${anofmCount}`);
+
+    const totalCount = rawJobs.length;
+    if (totalCount === 0) {
       console.log("No jobs found — nothing to upsert.");
       return;
     }
