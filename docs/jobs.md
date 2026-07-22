@@ -10,11 +10,11 @@
 | Location | B-dul TUDOR VLADIMIRESCU, 45, Bucureşti Sectorul 5, Bucureşti |
 | Website | [https://seniorsoftware.ro](https://seniorsoftware.ro) |
 | Careers | [https://seniorsoftware.ro/cariere/](https://seniorsoftware.ro/cariere/) |
-| Last Scraped | 2026-07-21 |
+| Last Scraped | 2026-07-22 |
 
 ## Current Job Listings (5)
 
-_Generated: 2026-07-21T08:06:56.515Z_
+_Generated: 2026-07-22T08:07:36.552Z_
 
 ### Sales Account Manager
 
